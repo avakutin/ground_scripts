@@ -1,0 +1,10 @@
+{
+    "id": "",
+    "tags": "",
+    "structureVersionId": "",
+    "reference": "",
+    "referenceParameters": "",
+    "edgeId": "Edges.test",
+    "fromId": "Nodes.test",
+    "toId": "Columns.test"
+}

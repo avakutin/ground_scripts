@@ -1,0 +1,15 @@
+{
+    "id": "",
+    "tags": {
+        "test_column": {
+            "versionId": "",
+            "key": "test_column",
+            "value": "test",
+            "type": "string"
+        }
+    },
+
+    "reference": "",
+    "referenceParameters": "",
+    "nodeId": "Columns.test"
+}

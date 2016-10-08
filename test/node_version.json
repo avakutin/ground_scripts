@@ -1,0 +1,15 @@
+{
+    "id": "",
+    "tags": {
+        "num_columns": {
+            "versionId": "",
+            "key": "num_columns",
+            "value": 1,
+            "type": "integer"
+        }
+    },
+
+    "reference": "",
+    "referenceParameters": "",
+    "nodeId": "Nodes.test"
+}
