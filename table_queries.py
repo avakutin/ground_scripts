@@ -24,6 +24,14 @@ class TableQueries:
         db_info.append(self.get_node_metadata(db_node_version))
         return db_info
 
+    def get_all_tables(self, db_name):
+        db_node_version = self.get_latest_node_version(db_name)
+        tables = []
+        for tag, val in db_node_version.json()["tags"]:
+            if string.find(tag, "table_") != -1:
+                tables.append(val["value"])
+        return tables
+
     def create_table(self, db_name, table_name, columns):
         """
         Create a new table called *table_name* with columns specified
