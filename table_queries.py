@@ -9,10 +9,10 @@ class TableQueries:
     def create_database(self, db_name):
         # Create a new Node for the database
         path = self.hostname + "/nodes/{}".format(db_name)
-        db_node_version = self.get_latest_node_version(db_name)
-
+        db_node = requests.post(path)
+        print(db_node)
         # Create new NodeVersion
-        db_node_version = self.create_node_version(db_node.json()["id"])
+        db_node_version = self.create_node_version(db_node.json()["nodeId"])
         return db_node_version
 
     def get_database(self, db_name):
@@ -139,7 +139,7 @@ class TableQueries:
         """
         Helper method to retrieve the latest NodeVersion of *node_name*
         """
-        node_path = self.host + "/nodes/{}/latest".format(node_name)
+        node_path = self.hostname + "/nodes/{}/latest".format(node_name)
         node_version = requests.get(node_path)
         return node_version
 
