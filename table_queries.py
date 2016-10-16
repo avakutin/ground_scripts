@@ -10,9 +10,9 @@ class TableQueries:
         # Create a new Node for the database
         path = self.hostname + "/nodes/{}".format(db_name)
         db_node = requests.post(path)
-        print(db_node)
+
         # Create new NodeVersion
-        db_node_version = self.create_node_version(db_node.json()["nodeId"])
+        db_node_version = self.create_node_version(db_node.json()["id"])
         return db_node_version
 
     def get_database(self, db_name):
@@ -23,6 +23,24 @@ class TableQueries:
         db_info = [db_name]
         db_info.append(self.get_node_metadata(db_node_version))
         return db_info
+
+    def drop_database(self, db_name):
+        """
+        Drops the databse called *db_name* by creating a new NodeVersion
+        with a "dropped" Tag.
+        """
+        db_node_version = self.get_latest_node_version(db_name)
+        node_id = db_node_version.json()["nodeId"]
+        parent_ids = db_node_version.json()["id"]
+        tag_map = {}
+        tag_map["dropped"] = {
+            "versionId": "",
+            "key": "dropped",
+            "value": "dropped",
+            "type": "string"
+        }
+        db_updated_node_version = self.create_node_version(node_id, \
+                                        tag_map=tag_map, parents=list(parent_ids))
 
     def get_all_tables(self, db_name):
         db_node_version = self.get_latest_node_version(db_name)
@@ -64,7 +82,7 @@ class TableQueries:
             col_node_version = self.create_node_version(col_node.json()["id"], tag_map=tag_map)
 
             # create Edge, then create EdgeVersion
-            edge_path = self.hostname + "/edges/{1}-to-{2}".format(table_name, col_name)
+            edge_path = self.hostname + "/edges/{0}-to-{1}".format(table_name, col_name)
             edge = requests.post(edge_path)
             edge_version = self.create_edge_version(edge.json()["id"], \
                                 table_node.json()["id"], col_node.json()["id"])
@@ -81,8 +99,8 @@ class TableQueries:
             "type": "string"
         }
         db_updated_node_version = self.create_node_version(node_id, \
-                                        tag_map=node_tags, parents=parent_ids)
-        edge_path = self.hostname + "/edges/{1}-to-{2}".format(db_name, table_name)
+                                        tag_map=node_tags, parents=list(parent_ids))
+        edge_path = self.hostname + "/edges/{0}-to-{1}".format(db_name, table_name)
         edge = requests.post(edge_path)
         edge_id = edge.json()["id"]
         fromId = db_updated_node_version.json()["id"]
@@ -99,11 +117,29 @@ class TableQueries:
         table_info.append(self.get_table_metadata(table_node_version))
         node_id = table_node_version.json()["nodeId"]
         edge_regex = table_name + "-to-*"
-        adjacent_path = self.hostname + "/nodes/adjacent/{1}/{2}".format(node_id, edge_regex)
+        adjacent_path = self.hostname + "/nodes/adjacent/{0}/{1}".format(node_id, edge_regex)
         columns = requests.get(adjacent_path)
         for col_name in columns:
             col = self.get_latest_node_version(col_name)
             table_info.append(self.get_node_metadata(col))
+
+    def drop_table(self, table_name):
+        """
+        Drops the databse called *db_name* by creating a new NodeVersion
+        with a "dropped" Tag.
+        """
+        table_node_version = self.get_latest_node_version(table_name)
+        node_id = table_node_version.json()["nodeId"]
+        parent_ids = table_node_version.json()["id"]
+        tag_map = {}
+        tag_map["dropped"] = {
+            "versionId": "",
+            "key": "dropped",
+            "value": "dropped",
+            "type": "string"
+        }
+        table_updated_node_version = self.create_node_version(node_id, \
+                                        tag_map=tag_map, parents=list(parent_ids))
 
     def create_edge_version(self, edge_id, fromId, toId):
         edge_version_path = self.hostname + "/edges/versions"
@@ -117,12 +153,12 @@ class TableQueries:
             "fromId": fromId,
             "toId": toId
         }
-        return requests.post(edge_version_path, data=edge_version)
+        return requests.post(edge_version_path, json=edge_version)
 
     def create_node_version(self, node_id, tag_map={}, parents=[]):
         """
         Helper method to create a new node version with tags spedified by
-         *tag_map* for the Node with *node_id*
+        *tag_map* for the Node with *node_id*
         """
         version_path = self.hostname + "/nodes/versions?parents={}".format(parents)
         node_version = {
@@ -133,7 +169,8 @@ class TableQueries:
             "referenceParameters": "",
             "nodeId": node_id
         }
-        return requests.post(version_path, data=node_version)
+        result = requests.post(version_path, json=node_version)
+        return result
 
     def get_latest_node_version(self, node_name):
         """
