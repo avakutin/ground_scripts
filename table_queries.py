@@ -1,5 +1,6 @@
 import requests
 import json
+import string
 
 class TableQueries:
 
@@ -9,10 +10,10 @@ class TableQueries:
     def create_database(self, db_name):
         # Create a new Node for the database
         path = self.hostname + "/nodes/{}".format(db_name)
-        db_node = requests.post(path)
+        db_node = requests.post(path).json()
 
         # Create new NodeVersion
-        db_node_version = self.create_node_version(db_node.json()["id"])
+        db_node_version = self.create_node_version(db_node["id"])
         return db_node_version
 
     def get_database(self, db_name):
@@ -30,8 +31,8 @@ class TableQueries:
         with a "dropped" Tag.
         """
         db_node_version = self.get_latest_node_version(db_name)
-        node_id = db_node_version.json()["nodeId"]
-        parent_ids = db_node_version.json()["id"]
+        node_id = db_node_version["nodeId"]
+        parent_ids = db_node_version["id"]
         tag_map = {}
         tag_map["dropped"] = {
             "versionId": "",
@@ -45,7 +46,7 @@ class TableQueries:
     def get_all_tables(self, db_name):
         db_node_version = self.get_latest_node_version(db_name)
         tables = []
-        for tag, val in db_node_version.json()["tags"]:
+        for tag, val in db_node_version["tags"].items():
             if string.find(tag, "table_") != -1:
                 tables.append(val["value"])
         return tables
@@ -57,43 +58,40 @@ class TableQueries:
         """
         # Create Node for new table
         path = self.hostname + "/nodes/{}".format(table_name)
-        table_node = requests.post(path)
+        table_node = requests.post(path).json()
 
         # Next, create a NodeVersion with a tag for number of columns
         tag_map = {}
         tag_map["num_columns"] = {
-            "versionId": "",
             "key": "num_columns",
             "value": len(columns),
             "type": "integer"
             }
-        table_node_version = self.create_node_version(table_node.json()["id"], tag_map=tag_map)
+        table_node_version = self.create_node_version(table_node["id"], tag_map=tag_map)
         for col_name, col_type in columns.items():
-            col_node = requests.post(self.hostname + "/nodes/{}".format(col_name))
+            col_node = requests.post(self.hostname + "/nodes/{}".format(col_name)).json()
 
             # create NodeVersion with tags for type
             tag_map = {}
             tag_map[col_name] = {
-                "versionId": "",
                 "key": col_name,
                 "value": col_type,
                 "type": col_type
             }
-            col_node_version = self.create_node_version(col_node.json()["id"], tag_map=tag_map)
+            col_node_version = self.create_node_version(col_node["id"], tag_map=tag_map)
 
             # create Edge, then create EdgeVersion
             edge_path = self.hostname + "/edges/{0}-to-{1}".format(table_name, col_name)
-            edge = requests.post(edge_path)
-            edge_version = self.create_edge_version(edge.json()["id"], \
-                                table_node.json()["id"], col_node.json()["id"])
+            edge = requests.post(edge_path).json()
+            self.create_edge_version(edge["id"], \
+                                table_node["id"], col_node["id"])
 
         # Update database metadata to contain this table
         db_node_version = self.get_latest_node_version(db_name)
-        node_id = db_node_version.json()["nodeId"]
-        parent_ids = db_node_version.json()["id"]
-        node_tags = db_node_version.json()["tags"]
+        node_id = db_node_version["nodeId"]
+        parent_ids = db_node_version["id"]
+        node_tags = db_node_version["tags"]
         node_tags["table_{}".format(table_name)] = {
-            "versionId": "",
             "key": "table_name",
             "value": table_name,
             "type": "string"
@@ -101,10 +99,10 @@ class TableQueries:
         db_updated_node_version = self.create_node_version(node_id, \
                                         tag_map=node_tags, parents=parent_ids)
         edge_path = self.hostname + "/edges/{0}-to-{1}".format(db_name, table_name)
-        edge = requests.post(edge_path)
-        edge_id = edge.json()["id"]
-        fromId = db_updated_node_version.json()["id"]
-        toId = table_node.json()["id"]
+        edge = requests.post(edge_path).json()
+        edge_id = edge["id"]
+        fromId = db_updated_node_version["id"]
+        toId = table_node["id"]
         self.create_edge_version(edge_id, fromId, toId)
         return table_node_version
 
@@ -114,14 +112,15 @@ class TableQueries:
         """
         table_info = [table_name]
         table_node_version = self.get_latest_node_version(table_name)
-        table_info.append(self.get_table_metadata(table_node_version))
-        node_id = table_node_version.json()["nodeId"]
+        table_info.append(self.get_node_metadata(table_node_version))
+        node_id = table_node_version["nodeId"]
         edge_regex = table_name + "-to-*"
         adjacent_path = self.hostname + "/nodes/adjacent/{0}/{1}".format(node_id, edge_regex)
-        columns = requests.get(adjacent_path)
+        columns = requests.get(adjacent_path).json()
         for col_name in columns:
             col = self.get_latest_node_version(col_name)
             table_info.append(self.get_node_metadata(col))
+        return table_info
 
     def drop_table(self, table_name):
         """
@@ -129,11 +128,10 @@ class TableQueries:
         with a "dropped" Tag.
         """
         table_node_version = self.get_latest_node_version(table_name)
-        node_id = table_node_version.json()["nodeId"]
-        parent_ids = table_node_version.json()["id"]
+        node_id = table_node_version["nodeId"]
+        parent_ids = table_node_version["id"]
         tag_map = {}
         tag_map["dropped"] = {
-            "versionId": "",
             "key": "dropped",
             "value": "dropped",
             "type": "string"
@@ -144,13 +142,12 @@ class TableQueries:
     def create_edge_version(self, edge_id, fromId, toId):
         edge_version_path = self.hostname + "/edges/versions"
         edge_version = {
-            "tags": "",
             "referenceParameters": {},
             "edgeId": edge_id,
             "fromId": fromId,
             "toId": toId
         }
-        return requests.post(edge_version_path, json=edge_version)
+        return requests.post(edge_version_path, json=edge_version).json()
 
     def create_node_version(self, node_id, tag_map={}, parents=None):
         """
@@ -167,23 +164,23 @@ class TableQueries:
             "nodeId": node_id
         }
         result = requests.post(version_path, json=node_version)
-        return result
+        return result.json()
 
     def get_latest_node_version(self, node_name):
         """
         Helper method to retrieve the latest NodeVersion of *node_name*
         """
         node_path = self.hostname + "/nodes/{}/latest".format(node_name)
-        node_version_id = requests.get(node_path)
-        get_node_path = self.hostname + "/nodes/versions/{}".format(node_version_id.json()[0])
+        node_version_id = requests.get(node_path).json()
+        get_node_path = self.hostname + "/nodes/versions/{}".format(node_version_id[0])
         node_version = requests.get(get_node_path)
-        return node_version
+        return node_version.json()
 
     def get_node_metadata(self, node_version):
         """
         Returns a dictionary representing the metadata of the *node_version*
         """
         metadata = {}
-        for name, tag in node_version.json()["tags"].items():
+        for name, tag in node_version["tags"].items():
             metadata[name] = tag["value"]
         return metadata
