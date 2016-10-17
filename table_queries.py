@@ -99,7 +99,7 @@ class TableQueries:
             "type": "string"
         }
         db_updated_node_version = self.create_node_version(node_id, \
-                                        tag_map=node_tags, parents=list(parent_ids))
+                                        tag_map=node_tags, parents=parent_ids)
         edge_path = self.hostname + "/edges/{0}-to-{1}".format(db_name, table_name)
         edge = requests.post(edge_path)
         edge_id = edge.json()["id"]
@@ -139,34 +139,31 @@ class TableQueries:
             "type": "string"
         }
         table_updated_node_version = self.create_node_version(node_id, \
-                                        tag_map=tag_map, parents=list(parent_ids))
+                                        tag_map=tag_map, parents=parent_ids)
 
     def create_edge_version(self, edge_id, fromId, toId):
         edge_version_path = self.hostname + "/edges/versions"
         edge_version = {
-            "id": "",
             "tags": "",
-            "structureVersionId": "",
-            "reference": "",
-            "referenceParameters": "",
+            "referenceParameters": {},
             "edgeId": edge_id,
             "fromId": fromId,
             "toId": toId
         }
         return requests.post(edge_version_path, json=edge_version)
 
-    def create_node_version(self, node_id, tag_map={}, parents=[]):
+    def create_node_version(self, node_id, tag_map={}, parents=None):
         """
         Helper method to create a new node version with tags spedified by
         *tag_map* for the Node with *node_id*
         """
-        version_path = self.hostname + "/nodes/versions?parents={}".format(parents)
+        if parents:
+            version_path = self.hostname + "/nodes/versions?parents={}".format(parents)
+        else:
+            version_path = self.hostname + "/nodes/versions"
         node_version = {
-            "id": "",
             "tags": tag_map,
-            "structureVersionId": "",
-            "reference": "",
-            "referenceParameters": "",
+            "referenceParameters": {},
             "nodeId": node_id
         }
         result = requests.post(version_path, json=node_version)
@@ -177,7 +174,9 @@ class TableQueries:
         Helper method to retrieve the latest NodeVersion of *node_name*
         """
         node_path = self.hostname + "/nodes/{}/latest".format(node_name)
-        node_version = requests.get(node_path)
+        node_version_id = requests.get(node_path)
+        get_node_path = self.hostname + "/nodes/versions/{}".format(node_version_id.json()[0])
+        node_version = requests.get(get_node_path)
         return node_version
 
     def get_node_metadata(self, node_version):
