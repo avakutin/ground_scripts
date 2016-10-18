@@ -23,7 +23,7 @@ class TableQueries:
         """
         db_node_version = self.get_latest_node_version(db_name)
         db_info = [db_name]
-        db_info.append(self.get_node_metadata(db_node_version))
+        db_info.append(self.get_node_version_metadata(db_node_version))
         return db_info
 
     def drop_database(self, db_name):
@@ -77,7 +77,7 @@ class TableQueries:
             tag_map[col_name] = {
                 "key": col_name,
                 "value": col_type,
-                "type": col_type
+                "type": "string"
             }
             col_node_version = self.create_node_version(col_node["id"], tag_map=tag_map)
 
@@ -85,7 +85,7 @@ class TableQueries:
             edge_path = self.hostname + "/edges/{0}-to-{1}".format(table_name, col_name)
             edge = requests.post(edge_path).json()
             result = self.create_edge_version(edge["id"], \
-                                table_node["id"], col_node["id"])
+                                table_node_version["id"], col_node_version["id"])
 
         # Update database metadata to contain this table
         db_node_version = self.get_latest_node_version(db_name)
@@ -113,15 +113,15 @@ class TableQueries:
         """
         table_info = [table_name]
         table_node_version = self.get_latest_node_version(table_name)
-        table_info.append(self.get_node_metadata(table_node_version))
-        node_id = table_node_version["nodeId"]
-        edge_regex = table_name + "-to-[a-zA-Z0-9_]*"
+        table_info.append(self.get_node_version_metadata(table_node_version))
+        node_id = table_node_version["id"]
+        edge_regex = table_name + "-to-"
         adjacent_path = self.hostname + "/nodes/adjacent/{0}/{1}".format(node_id, edge_regex)
-        columns = requests.get(adjacent_path).json()
-        print(columns)
-        for col_name in columns:
-            col = self.get_latest_node_version(col_name)
-            table_info.append(self.get_node_metadata(col))
+        column_ids = requests.get(adjacent_path).json()
+        for col_id in column_ids:
+            version_path = self.hostname + "/nodes/versions/{}".format(col_id)
+            col_node_version = requests.get(version_path).json()
+            table_info.append(self.get_node_version_metadata(col_node_version))
         return table_info
 
     def drop_table(self, table_name):
@@ -179,7 +179,7 @@ class TableQueries:
         node_version = requests.get(get_node_path)
         return node_version.json()
 
-    def get_node_metadata(self, node_version):
+    def get_node_version_metadata(self, node_version):
         """
         Returns a dictionary representing the metadata of the *node_version*
         """
