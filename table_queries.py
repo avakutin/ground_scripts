@@ -1,6 +1,7 @@
 import requests
 import json
 import string
+import re
 
 class TableQueries:
 
@@ -83,7 +84,7 @@ class TableQueries:
             # create Edge, then create EdgeVersion
             edge_path = self.hostname + "/edges/{0}-to-{1}".format(table_name, col_name)
             edge = requests.post(edge_path).json()
-            self.create_edge_version(edge["id"], \
+            result = self.create_edge_version(edge["id"], \
                                 table_node["id"], col_node["id"])
 
         # Update database metadata to contain this table
@@ -114,9 +115,10 @@ class TableQueries:
         table_node_version = self.get_latest_node_version(table_name)
         table_info.append(self.get_node_metadata(table_node_version))
         node_id = table_node_version["nodeId"]
-        edge_regex = table_name + "-to-*"
+        edge_regex = table_name + "-to-[a-zA-Z0-9_]*"
         adjacent_path = self.hostname + "/nodes/adjacent/{0}/{1}".format(node_id, edge_regex)
         columns = requests.get(adjacent_path).json()
+        print(columns)
         for col_name in columns:
             col = self.get_latest_node_version(col_name)
             table_info.append(self.get_node_metadata(col))
@@ -142,6 +144,7 @@ class TableQueries:
     def create_edge_version(self, edge_id, fromId, toId):
         edge_version_path = self.hostname + "/edges/versions"
         edge_version = {
+            "tags": {},
             "referenceParameters": {},
             "edgeId": edge_id,
             "fromId": fromId,
