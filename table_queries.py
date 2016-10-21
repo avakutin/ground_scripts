@@ -22,6 +22,8 @@ class TableQueries:
         Retrieves the inforamtion about the database called *db_name*
         """
         db_node_version = self.get_latest_node_version(db_name)
+        if self.check_if_dropped(db_node_version):
+            return "Database {} has been dropped".format(db_name)
         db_info = [db_name]
         db_info.append(self.get_node_version_metadata(db_node_version))
         return db_info
@@ -33,7 +35,7 @@ class TableQueries:
         """
         db_node_version = self.get_latest_node_version(db_name)
         node_id = db_node_version["nodeId"]
-        parent_ids = db_node_version["id"]
+        parent_id = db_node_version["id"]
         tag_map = {}
         tag_map["dropped"] = {
             "versionId": "",
@@ -42,7 +44,7 @@ class TableQueries:
             "type": "string"
         }
         db_updated_node_version = self.create_node_version(node_id, \
-                                        tag_map=tag_map, parents=list(parent_ids))
+                                        tag_map=tag_map, parents=parent_id)
 
     def get_all_tables(self, db_name):
         db_node_version = self.get_latest_node_version(db_name)
@@ -57,6 +59,11 @@ class TableQueries:
         Create a new table called *table_name* with columns specified
         by *columns*
         """
+        # Check that the database exists
+        db_node_version = self.get_latest_node_version(db_name)
+        if self.check_if_dropped(db_node_version):
+            return "Database {} has been dropped".format(db_name)
+
         # Create Node for new table
         path = self.hostname + "/nodes/{}".format(table_name)
         table_node = requests.post(path).json()
@@ -69,26 +76,10 @@ class TableQueries:
             "type": "integer"
             }
         table_node_version = self.create_node_version(table_node["id"], tag_map=tag_map)
-        for col_name, col_type in columns.items():
-            col_node = requests.post(self.hostname + "/nodes/{}".format(col_name)).json()
 
-            # create NodeVersion with tags for type
-            tag_map = {}
-            tag_map[col_name] = {
-                "key": col_name,
-                "value": col_type,
-                "type": "string"
-            }
-            col_node_version = self.create_node_version(col_node["id"], tag_map=tag_map)
-
-            # create Edge, then create EdgeVersion
-            edge_path = self.hostname + "/edges/{0}-to-{1}".format(table_name, col_name)
-            edge = requests.post(edge_path).json()
-            result = self.create_edge_version(edge["id"], \
-                                table_node_version["id"], col_node_version["id"])
+        self.create_columns(table_name, columns, table_node_version["id"])
 
         # Update database metadata to contain this table
-        db_node_version = self.get_latest_node_version(db_name)
         node_id = db_node_version["nodeId"]
         parent_ids = db_node_version["id"]
         node_tags = db_node_version["tags"]
@@ -113,6 +104,8 @@ class TableQueries:
         """
         table_info = [table_name]
         table_node_version = self.get_latest_node_version(table_name)
+        if self.check_if_dropped(table_node_version):
+            return "Table {} has been dropped".format(table_name)
         table_info.append(self.get_node_version_metadata(table_node_version))
         node_id = table_node_version["id"]
         edge_regex = table_name + "-to-"
@@ -140,6 +133,47 @@ class TableQueries:
         }
         table_updated_node_version = self.create_node_version(node_id, \
                                         tag_map=tag_map, parents=parent_ids)
+
+    def update_table(self, table_name, schema):
+        """
+        Update *table_name* to have the given *schema*
+        """
+        tag_map = {}
+        tag_map["num_columns"] = {
+            "key": "num_columns",
+            "value": len(schema),
+            "type": "integer"
+            }
+        latest_node_version = self.get_latest_node_version(table_name)
+        node_id = latest_node_version["nodeId"]
+        parent_id = latest_node_version["id"]
+        table_node_version = self.create_node_version(node_id, tag_map=tag_map, \
+                                        parents=parent_id)
+        print(table_node_version)
+        self.create_columns(table_name, schema, table_node_version["id"])
+
+
+    def create_columns(self, table_name, columns, node_version_id):
+        """
+        Creates Nodes and NodeVersions for the columns specified by *columns*
+        and attaches them to the table with name *table_name* whose latest NodeVersion id
+        is *node_version_id*
+        """
+        for col_name, col_type in columns.items():
+            col_node = requests.post(self.hostname + "/nodes/{}".format(col_name)).json()
+
+            # create NodeVersion with tags for type
+            tag_map = {}
+            tag_map[col_name] = {
+                "key": col_name,
+                "value": col_type,
+                "type": "string"
+            }
+            col_node_version = self.create_node_version(col_node["id"], tag_map=tag_map)
+            # create Edge, then create EdgeVersion
+            edge_path = self.hostname + "/edges/{0}-to-{1}".format(table_name, col_name)
+            edge = requests.post(edge_path).json()
+            result = self.create_edge_version(edge["id"], node_version_id, col_node_version["id"])
 
     def create_edge_version(self, edge_id, fromId, toId):
         edge_version_path = self.hostname + "/edges/versions"
@@ -187,3 +221,12 @@ class TableQueries:
         for name, tag in node_version["tags"].items():
             metadata[name] = tag["value"]
         return metadata
+
+    def check_if_dropped(self, node_version):
+        """
+        Checks whether the table or databse that this *node_version*
+        refers to has been dropped.
+        """
+        if node_version["tags"].get("dropped"):
+            return True
+        return False
