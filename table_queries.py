@@ -51,7 +51,9 @@ class TableQueries:
         tables = []
         for tag, val in db_node_version["tags"].items():
             if string.find(tag, "table_") != -1:
-                tables.append(val["value"])
+                table_node_version = self.get_latest_node_version(val["value"])
+                if not self.check_if_dropped(table_node_version):
+                    tables.append(val["value"])
         return tables
 
     def create_table(self, db_name, table_name, columns):
@@ -119,8 +121,8 @@ class TableQueries:
 
     def drop_table(self, table_name):
         """
-        Drops the databse called *db_name* by creating a new NodeVersion
-        with a "dropped" Tag.
+        Drops the table called *table_name* by creating a new NodeVersion with a
+        "dropped" Tag.
         """
         table_node_version = self.get_latest_node_version(table_name)
         node_id = table_node_version["nodeId"]
@@ -149,7 +151,6 @@ class TableQueries:
         parent_id = latest_node_version["id"]
         table_node_version = self.create_node_version(node_id, tag_map=tag_map, \
                                         parents=parent_id)
-        print(table_node_version)
         self.create_columns(table_name, schema, table_node_version["id"])
 
 
