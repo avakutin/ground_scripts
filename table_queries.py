@@ -48,12 +48,17 @@ class TableQueries:
 
     def get_all_tables(self, db_name):
         db_node_version = self.get_latest_node_version(db_name)
+        node_id = db_node_version["id"]
+        edge_regex = db_name + "-to-"
+        adjacent_path = self.hostname + "/nodes/adjacent/{0}/{1}".format(node_id, edge_regex)
+        table_ids = requests.get(adjacent_path).json()
         tables = []
-        for tag, val in db_node_version["tags"].items():
-            if string.find(tag, "table_") != -1:
-                table_node_version = self.get_latest_node_version(val["value"])
-                if not self.check_if_dropped(table_node_version):
-                    tables.append(val["value"])
+        for tid in table_ids:
+            version_path = self.hostname + "/nodes/versions/{}".format(tid)
+            table_node_version = requests.get(version_path).json()
+            if not self.check_if_dropped(table_node_version):
+                name = table_node_version["nodeId"][6:]
+                tables.append(name)
         return tables
 
     def create_table(self, db_name, table_name, columns):
@@ -81,22 +86,15 @@ class TableQueries:
 
         self.create_columns(table_name, columns, table_node_version["id"])
 
-        # Update database metadata to contain this table
+        # Create edge between database and this table
         node_id = db_node_version["nodeId"]
         parent_ids = db_node_version["id"]
-        node_tags = db_node_version["tags"]
-        node_tags["table_{}".format(table_name)] = {
-            "key": "table_name",
-            "value": table_name,
-            "type": "string"
-        }
-        db_updated_node_version = self.create_node_version(node_id, \
-                                        tag_map=node_tags, parents=parent_ids)
+        db_updated_node_version = self.create_node_version(node_id, parents=parent_ids)
         edge_path = self.hostname + "/edges/{0}-to-{1}".format(db_name, table_name)
         edge = requests.post(edge_path).json()
         edge_id = edge["id"]
         fromId = db_updated_node_version["id"]
-        toId = table_node["id"]
+        toId = table_node_version["id"]
         self.create_edge_version(edge_id, fromId, toId)
         return table_node_version
 
