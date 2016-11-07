@@ -23,7 +23,8 @@ class TableQueries:
         """
         db_node_version = self.get_latest_node_version(db_name)
         if self.check_if_dropped(db_node_version):
-            return "Database {} has been dropped".format(db_name)
+            print "Database {} has been dropped".format(db_name)
+            return
         db_info = [db_name]
         db_info.append(self.get_node_version_metadata(db_node_version))
         return db_info
@@ -69,7 +70,8 @@ class TableQueries:
         # Check that the database exists
         db_node_version = self.get_latest_node_version(db_name)
         if self.check_if_dropped(db_node_version):
-            return "Database {} has been dropped".format(db_name)
+            print "Database {} has been dropped".format(db_name)
+            return
 
         # Create Node for new table
         path = self.hostname + "/nodes/{}".format(table_name)
@@ -96,6 +98,19 @@ class TableQueries:
         fromId = db_updated_node_version["id"]
         toId = table_node_version["id"]
         self.create_edge_version(edge_id, fromId, toId)
+
+        # Make edge from new db NodeVersion to any previous Tables
+        edge_regex = db_name + "-to-"
+        adjacent_path = self.hostname + "/nodes/adjacent/{0}/{1}".format(db_node_version["id"], edge_regex)
+        table_ids = requests.get(adjacent_path).json()
+        for table_id in table_ids:
+            table_node = requests.get(self.hostname + "/nodes/versions/{}".format(table_id)).json()
+            table_name = table_node["nodeId"][6:]
+            edge_path = self.hostname + "/edges/{0}-to-{1}".format(db_name, table_name)
+            edge = requests.post(edge_path).json()
+            edge_id = edge["id"]
+            fromId = db_updated_node_version["id"]
+            self.create_edge_version(edge_id, fromId, table_id)
         return table_node_version
 
     def get_table(self, table_name):
@@ -105,7 +120,8 @@ class TableQueries:
         table_info = [table_name]
         table_node_version = self.get_latest_node_version(table_name)
         if self.check_if_dropped(table_node_version):
-            return "Table {} has been dropped".format(table_name)
+            print "Table {} has been dropped".format(table_name)
+            return
         table_info.append(self.get_node_version_metadata(table_node_version))
         node_id = table_node_version["id"]
         edge_regex = table_name + "-to-"

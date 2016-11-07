@@ -1,13 +1,85 @@
+import sys
 from table_queries import TableQueries
+from file_queries import FileQueries
 
 queries = TableQueries("http://localhost:8080")
-queries.create_database("test_db")
-queries.create_table("test_db", "test_table", {"col_1": "string", "col_2": "integer"})
-print(queries.get_database("test_db"))
-print("Tables: " + str(queries.get_all_tables("test_db")))
-print(queries.get_table("test_table"))
-queries.update_table("test_table", {"new_col1": "boolean", "new_col2": "string"})
-print(queries.get_table("test_table"))
-queries.drop_table("test_table")
-print(queries.get_table("test_table"))
-print("Tables: " + str(queries.get_all_tables("test_db")))
+
+fqueries = FileQueries("http://localhost:8080")
+
+def test_create_db_and_table():
+    """
+    Creates a database and 1 table in that database.
+    Then, tries to get that table.
+    """
+    queries.create_database("test_db")
+    queries.create_table("test_db", "test_table", {"col_1": "string", "col_2": "integer"})
+    print(queries.get_database("test_db"))
+    print("Tables: " + str(queries.get_all_tables("test_db")))
+    print(queries.get_table("test_table"))
+
+def test_update_table():
+    """
+    Creates a table within a database. Then updates the table.
+    The get_table after the update should reflect the update.
+    """
+    queries.create_database("test_db")
+    queries.create_table("test_db", "test_table", {"col_1": "string", "col_2": "integer"})
+    print(queries.get_database("test_db"))
+    print("Tables: " + str(queries.get_all_tables("test_db")))
+    print(queries.get_table("test_table"))
+    queries.update_table("test_table", {"new_col1": "boolean", "new_col2": "string"})
+    print(queries.get_table("test_table"))
+
+def test_create_multiple_tables():
+    """
+    Creates 2 tables within one database. Get all tables call should
+    return both tables in the database.
+    """
+    queries.create_database("test_db")
+    queries.create_table("test_db", "test_table1", {"col_1": "string", "col_2": "integer"})
+    queries.create_table("test_db", "test_table2", {"column1": "boolean", "column2": "string", "column3": "integer"})
+    print(queries.get_database("test_db"))
+    print("Tables: " + str(queries.get_all_tables("test_db")))
+
+def test_multiple_tables_drop_one():
+    """
+    Creates 2 tables within a database, then drops one of them.
+    Get all tables call should return the 1 not dropped table.
+    """
+    queries.create_database("test_db")
+    queries.create_table("test_db", "test_table1", {"col_1": "string", "col_2": "integer"})
+    queries.create_table("test_db", "test_table2", {"column1": "boolean", "column2": "string", "column3": "integer"})
+    print(queries.get_database("test_db"))
+    queries.drop_table("test_table2")
+    print(queries.get_database("test_db"))
+    print("Tables: " + str(queries.get_all_tables("test_db")))
+    print(queries.get_table("test_table2"))
+
+def test_drop_db_try_to_create_table():
+    """
+    Creates a database and table, then drops the database.
+    Attempts to create a table in the dropped database; should fail.
+    """
+    queries.create_database("test_db")
+    queries.create_table("test_db", "test_table", {"col_1": "string", "col_2": "integer"})
+    queries.drop_database("test_db")
+    queries.create_table("test_db", "test", {"column": "boolean"})
+
+def test_create_file():
+    fqueries.create_file("test_file", {"size": "20MB", "date_modified": "10-25-2016", "kind": "PDF"})
+    print(fqueries.get_file("test_file"))
+
+if __name__ == "__main__":
+    test = sys.argv[1]
+    if test == "create_db_and_table":
+        test_create_db_and_table()
+    elif test == "update_table":
+        test_update_table()
+    elif test == "create_multiple_tables":
+        test_create_multiple_tables()
+    elif test == "multiple_tables_drop_one":
+        test_multiple_tables_drop_one()
+    elif test == "drop_db_try_to_create_table":
+        test_drop_db_try_to_create_table()
+    elif test == "create_file":
+        test_create_file()
