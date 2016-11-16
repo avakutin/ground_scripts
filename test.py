@@ -65,21 +65,50 @@ def test_drop_db_try_to_create_table():
     queries.drop_database("test_db")
     queries.create_table("test_db", "test", {"column": "boolean"})
 
+def test_create_directory_nested():
+    """
+    Creates a directory. Then creates a directory within that directory
+    """
+    fqueries.create_directory("/")
+    fqueries.create_directory("/dir1")
+
 def test_create_file():
-    fqueries.create_file("test_file", {"size": "20MB", "date_modified": "10-25-2016", "kind": "PDF"})
-    print(fqueries.get_file("test_file"))
+    """
+    Creates a file within the root directory
+    """
+    fqueries.create_directory("/")
+    fqueries.create_file("/test_file", {"size": "20MB", "date_modified": "10-25-2016", "kind": "PDF"})
+    print(fqueries.get_file("/test_file"))
+
+def test_create_file_within_2_dirs():
+    """
+    Creates the root directory, then another directory within the root.
+    Then, creates a file in the nested directory
+    """
+    fqueries.create_directory("/")
+    fqueries.create_directory("/dir")
+    fqueries.create_file("/dir/file", {"size": "20MB", "date_modified": "10-25-2016", "kind": "PDF"})
+    print(fqueries.get_file("/dir/file"))
+
 
 if __name__ == "__main__":
-    test = sys.argv[1]
-    if test == "create_db_and_table":
-        test_create_db_and_table()
-    elif test == "update_table":
-        test_update_table()
-    elif test == "create_multiple_tables":
-        test_create_multiple_tables()
-    elif test == "multiple_tables_drop_one":
-        test_multiple_tables_drop_one()
-    elif test == "drop_db_try_to_create_table":
-        test_drop_db_try_to_create_table()
-    elif test == "create_file":
-        test_create_file()
+    if len(sys.argv) < 2:
+        print "To run a test, check test.py for possible tests"
+    else:
+        test = sys.argv[1]
+        if test == "create_db_and_table":
+            test_create_db_and_table()
+        elif test == "update_table":
+            test_update_table()
+        elif test == "create_multiple_tables":
+            test_create_multiple_tables()
+        elif test == "multiple_tables_drop_one":
+            test_multiple_tables_drop_one()
+        elif test == "drop_db_try_to_create_table":
+            test_drop_db_try_to_create_table()
+        elif test == "create_file":
+            test_create_file()
+        elif test == "create_directory_nested":
+            test_create_directory_nested()
+        elif test == "create_file_within_2_dirs":
+            test_create_file_within_2_dirs()

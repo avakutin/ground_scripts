@@ -1,7 +1,5 @@
 import requests
 import json
-import string
-import re
 
 def create_nodes_for_tags(hostname, node_name, tags, node_version_id):
     """

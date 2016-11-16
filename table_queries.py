@@ -1,7 +1,5 @@
 import requests
 import json
-import string
-import re
 import utils
 
 class TableQueries:
