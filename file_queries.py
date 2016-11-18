@@ -8,9 +8,38 @@ class FileQueries:
     def __init__(self, hostname):
         self.hostname = hostname
 
+    def ls(self, path):
+        path_list = self.split_path(path)
+
+        # Check that supplied path refers to a directory
+        if self.is_file(path_list, parent=False):
+            print "Path '{}' is not a directory".format(path)
+            return
+
+        dir_node_version = utils.get_latest_node_version(self.hostname, path_list[-1])
+        adj_path = self.hostname + "/nodes/adjacent/{0}/{1}-to-".format(dir_node_version["id"], \
+                                    path_list[-1])
+        adj_list = requests.get(adj_path).json()
+        output = [path[-1]]
+        for node_id in adj_list:
+            node = requests.get(self.hostname + "/nodes/versions/{}".format(node_id)).json()
+            name = node["nodeId"][6:]
+            node_version = utils.get_latest_node_version(self.hostname, name)
+            metadata = utils.get_node_version_metadata(node_version)
+            if metadata.get("file") != None:
+                output.append((name, "File"))
+            else:
+                output.append((name, "Directory"))
+        return output
+
     def create_directory(self, path):
         # Create Node for directory
         path_list = self.split_path(path)
+
+        # Check that supplied parent is a directory
+        if self.is_file(path_list):
+            print "Parent '{}' is not a directory".format(path_list[-2])
+            return
 
         req_path = self.hostname + "/nodes/{}".format(path_list[-1])
         dir_node = requests.post(req_path).json()
@@ -29,6 +58,11 @@ class FileQueries:
         """
         path_list = self.split_path(filepath)
         filename = path_list[-1]
+
+        # Check that supplied parent is a directory
+        if self.is_file(path_list):
+            print "Parent '{}' is not a directory".format(path_list[-2])
+            return
 
         # Create Node for file
         path = self.hostname + "/nodes/{}".format(filename)
@@ -83,3 +117,20 @@ class FileQueries:
         fromId = parent_dir_node_version["id"]
         toId = new_node_version_id
         utils.create_edge_version(self.hostname, edge_id, fromId, toId)
+
+    def is_file(self, path_list, parent=True):
+        """
+        If parent is true, returns whether the parent of the supplied
+        directory/file is a directory. If parent is false, returns whether
+        the entire path refers to a directory
+        """
+        if parent:
+            if len(path_list) < 2:
+                return False
+            name = path_list[-2]
+        else:
+            name = path_list[-1]
+
+        parent_node_version = utils.get_latest_node_version(self.hostname, name)
+        metadata = utils.get_node_version_metadata(parent_node_version)
+        return metadata.get("file") != None

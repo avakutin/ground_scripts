@@ -90,6 +90,16 @@ def test_create_file_within_2_dirs():
     fqueries.create_file("/dir/file", {"size": "20MB", "date_modified": "10-25-2016", "kind": "PDF"})
     print(fqueries.get_file("/dir/file"))
 
+def test_ls():
+    """
+    Creates a directory with a file and directory inside it,
+    then calls 'ls'
+    """
+    fqueries.create_directory("/")
+    fqueries.create_directory("/test_dir")
+    fqueries.create_file("/test_file", {"size": "20MB", "date_modified": "10-25-2016", "kind": "PDF"})
+    print(fqueries.ls("/"))
+
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
@@ -112,3 +122,5 @@ if __name__ == "__main__":
             test_create_directory_nested()
         elif test == "create_file_within_2_dirs":
             test_create_file_within_2_dirs()
+        elif test == "ls":
+            test_ls()
