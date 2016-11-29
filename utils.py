@@ -24,6 +24,12 @@ def create_nodes_for_tags(hostname, node_name, tags, node_version_id):
         result = create_edge_version(hostname, edge["id"], node_version_id, tag_node_version["id"])
 
 def create_edge_version(hostname, edge_id, fromId, toId):
+    """
+    Creates a new EdgeVersion for the Edge with *edge_id*. The EdgeVersion
+    is from NodeVersion *fromId* to NodeVersion *toId*.
+
+    Returns the new EdgeVersion
+    """
     edge_version_path = hostname + "/edges/versions"
     edge_version = {
         "tags": {},
@@ -36,8 +42,11 @@ def create_edge_version(hostname, edge_id, fromId, toId):
 
 def create_node_version(hostname, node_id, tag_map={}, parents=None):
     """
-    Helper method to create a new node version with tags spedified by
-    *tag_map* for the Node with *node_id*
+    Creates a new node version with tags spedified by *tag_map* for the
+    Node with *node_id*. If *parents* is provided, creates edges between
+    the new node version and its parents.
+
+    Returns the new NodeVersion
     """
     if parents:
         version_path = hostname + "/nodes/versions?parents={}".format(parents)
@@ -53,7 +62,7 @@ def create_node_version(hostname, node_id, tag_map={}, parents=None):
 
 def get_latest_node_version(hostname, node_name):
     """
-    Helper method to retrieve the latest NodeVersion of *node_name*
+    Returns the latest NodeVersion of the node with name *node_name*
     """
     node_path = hostname + "/nodes/{}/latest".format(node_name)
     node_version_id = requests.get(node_path).json()
@@ -63,7 +72,7 @@ def get_latest_node_version(hostname, node_name):
 
 def get_node_version_metadata(node_version):
     """
-    Returns a dictionary representing the metadata of the *node_version*
+    Returns a dictionary representing the metadata (Tags) of the *node_version*
     """
     metadata = {}
     for name, tag in node_version["tags"].items():
